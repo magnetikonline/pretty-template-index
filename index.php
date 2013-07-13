@@ -53,16 +53,11 @@ EOT;
 
 	private function getFileList() {
 
-		// check for files in same dir as script, DOCUMENT_ROOT/DOCUMENT_URI otherwise try DOCUMENT_ROOT
+		// check for files in same directory as script itself, otherwise DOCUMENT_ROOT/DOCUMENT_URI
 		$fileList = glob(__DIR__ . '/' . self::HTML_FILE_EXT);
-
 		$fileList = ($fileList)
 			? $fileList
 			: glob($_SERVER['DOCUMENT_ROOT'] . $_SERVER['DOCUMENT_URI'] . self::HTML_FILE_EXT);
-
-		$fileList = ($fileList)
-			? $fileList
-			: glob($_SERVER['DOCUMENT_ROOT'] . '/' . self::HTML_FILE_EXT);
 
 		if (!$fileList) {
 			// no templates found
