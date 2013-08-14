@@ -2,9 +2,13 @@
 class PrettyTemplateIndex {
 
 	const HTML_FILE_EXT = '*.html';
+	const FETCH_PAGE_TITLE_REGEXP = '/<title>([^<]+)<\/title>/';
+	const PAGE_TITLE_SESSION_KEY = 'prettyTemplateIndexTitleCache';
 
 
 	public function __construct() {
+
+		session_start();
 
 		echo(
 			$this->getPageHeader() .
@@ -25,6 +29,7 @@ class PrettyTemplateIndex {
 	<meta name="viewport" content="width=device-width,initial-scale=1" />
 
 	<title>Pretty Template Index</title>
+
 	<style>
 		body { background: #353c42;font: 62.5%/1 Georgia,Times,'Times New Roman',serif;margin: 60px 20px;padding: 0; }
 		table { border-collapse: collapse;font-size: 1.6em;margin: 0 auto; }
@@ -85,9 +90,37 @@ EOT;
 
 	private function getPageTitle($file) {
 
-		return (preg_match('/<title>([^<]+)<\/title>/',file_get_contents($file),$matches))
+		// page title in session cache?
+		if (isset($_SESSION[self::PAGE_TITLE_SESSION_KEY][$file])) {
+			return $_SESSION[self::PAGE_TITLE_SESSION_KEY][$file];
+		}
+
+		// try to fetch title from file directly
+		$title = (preg_match(self::FETCH_PAGE_TITLE_REGEXP,file_get_contents($file),$matches))
 			? trim($matches[1])
-			: 'N/A';
+			: false;
+
+		if ($title === false) {
+			// grab file over http request and try again
+			$pageUrl = ($_SERVER['SERVER_PORT'] == 80) ? 'http://' : 'https://';
+			$pageUrl = $pageUrl . $_SERVER['HTTP_HOST'] . $_SERVER['DOCUMENT_URI'] . basename($file);
+
+			$title = (preg_match(self::FETCH_PAGE_TITLE_REGEXP,file_get_contents($pageUrl),$matches))
+				? trim($matches[1])
+				: 'N/A';
+		}
+
+		$title = htmlspecialchars_decode($title);
+
+		// cache page title in session
+		if (!isset($_SESSION[self::PAGE_TITLE_SESSION_KEY])) {
+			$_SESSION[self::PAGE_TITLE_SESSION_KEY] = [];
+		}
+
+		$_SESSION[self::PAGE_TITLE_SESSION_KEY][$file] = $title;
+
+		// return title
+		return $title;
 	}
 }
 
