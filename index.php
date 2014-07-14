@@ -102,10 +102,17 @@ EOT;
 
 		// page meta in session cache?
 		if (isset($_SESSION[self::PAGE_META_SESSION_KEY][$fileMetaStoreKey])) {
-			return $_SESSION[self::PAGE_META_SESSION_KEY][$fileMetaStoreKey];
+			$metaData = $_SESSION[self::PAGE_META_SESSION_KEY][$fileMetaStoreKey];
+
+			// ensure file modified time matches meta data
+			if (array_shift($metaData) == filemtime($filePath)) {
+				return $metaData;
+			}
 		}
 
-		// try to fetch title from file directly
+		// page not in session cache/file modified
+
+		// attempt page title fetch directly from file
 		if (preg_match(
 			self::PAGE_TITLE_EXTRACT_REGEXP,
 			file_get_contents($filePath),$matches
@@ -115,7 +122,7 @@ EOT;
 			$pageFileSize = filesize($filePath);
 
 		} else {
-			// grab file meta over http and try again
+			// grab file meta over http(s) and try again
 			$pageFetchURL = sprintf(
 				'%s://%s%s%s',
 				($_SERVER['SERVER_PORT'] == 80) ? 'http' : 'https',
@@ -138,9 +145,12 @@ EOT;
 			$_SESSION[self::PAGE_META_SESSION_KEY] = [];
 		}
 
-		$metaData = [$pageTitle,$pageFileSize];
-		$_SESSION[self::PAGE_META_SESSION_KEY][$fileMetaStoreKey] = $metaData;
-		return $metaData;
+		$_SESSION[self::PAGE_META_SESSION_KEY][$fileMetaStoreKey] = [
+			filemtime($filePath),
+			$pageTitle,$pageFileSize
+		];
+
+		return [$pageTitle,$pageFileSize];
 	}
 }
 
