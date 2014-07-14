@@ -2,11 +2,11 @@
 class PrettyTemplateIndex {
 
 	const HTML_FILE_EXT = '*.html';
-	const FETCH_PAGE_TITLE_REGEXP = '/<title>([^<]+)<\/title>/';
-	const PAGE_TITLE_SESSION_KEY = 'prettyTemplateIndexTitleCache';
+	const PAGE_TITLE_EXTRACT_REGEXP = '/<title>([^<]+)<\/title>/';
+	const PAGE_META_SESSION_KEY = 'prettyTemplateIndexMetaCache';
 
 
-	public function __construct() {
+	public function execute() {
 
 		session_start();
 
@@ -19,7 +19,7 @@ class PrettyTemplateIndex {
 
 	private function getPageHeader() {
 
-		return <<<EOT
+		return <<<'EOT'
 <!DOCTYPE html>
 
 <html lang="en">
@@ -58,14 +58,14 @@ EOT;
 
 	private function getFileList() {
 
-		// check for files in same directory as script itself, otherwise DOCUMENT_ROOT/DOCUMENT_URI
+		// check for files in same directory as script itself, otherwise try DOCUMENT_ROOT/DOCUMENT_URI
 		$fileList = glob(__DIR__ . '/' . self::HTML_FILE_EXT);
 		$fileList = ($fileList)
 			? $fileList
 			: glob($_SERVER['DOCUMENT_ROOT'] . $_SERVER['DOCUMENT_URI'] . self::HTML_FILE_EXT);
 
 		if (!$fileList) {
-			// no templates found
+			// no page templates found
 			return '<tr><td class="notfound" colspan="4">No templates found</td></tr>';
 		}
 
@@ -74,13 +74,15 @@ EOT;
 
 		$html = '';
 		foreach ($fileList as $fileItem) {
+			// get file item name as HTML and file meta data
 			$fileItemHtml = htmlspecialchars(basename($fileItem));
+			list($pageTitle,$pageSize) = $this->getPageMeta($fileItem);
 
 			$html .=
 				'<tr>' .
 					'<td><a href="' . $fileItemHtml . '">' . $fileItemHtml . '</a></td>' .
-					'<td>' . htmlspecialchars($this->getPageTitle($fileItem)) . '</td>' .
-					'<td>' . filesize($fileItem) . '</td>' .
+					'<td>' . htmlspecialchars($pageTitle) . '</td>' .
+					'<td>' . $pageSize . '</td>' .
 					'<td>' . date('Y-m-d H:i:s',filemtime($fileItem)) . '</td>' .
 				'</tr>';
 		}
@@ -88,41 +90,59 @@ EOT;
 		return $html;
 	}
 
-	private function getPageTitle($file) {
+	private function getPageMeta($filePath) {
 
-		// page title in session cache?
-		if (isset($_SESSION[self::PAGE_TITLE_SESSION_KEY][$file])) {
-			return $_SESSION[self::PAGE_TITLE_SESSION_KEY][$file];
+		$HTTPHost = $_SERVER['HTTP_HOST'];
+		$documentURI = $_SERVER['DOCUMENT_URI'];
+		$filePathBaseName = basename($filePath);
+		$fileMetaStoreKey = sprintf(
+			'%s:%s:%s',
+			$HTTPHost,$documentURI,$filePathBaseName
+		);
+
+		// page meta in session cache?
+		if (isset($_SESSION[self::PAGE_META_SESSION_KEY][$fileMetaStoreKey])) {
+			return $_SESSION[self::PAGE_META_SESSION_KEY][$fileMetaStoreKey];
 		}
 
 		// try to fetch title from file directly
-		$title = (preg_match(self::FETCH_PAGE_TITLE_REGEXP,file_get_contents($file),$matches))
-			? trim($matches[1])
-			: false;
+		if (preg_match(
+			self::PAGE_TITLE_EXTRACT_REGEXP,
+			file_get_contents($filePath),$matches
+		)) {
+			// success, save filesize direct from file in addition
+			$pageTitle = trim($matches[1]);
+			$pageFileSize = filesize($filePath);
 
-		if ($title === false) {
-			// grab file over http request and try again
-			$pageUrl = ($_SERVER['SERVER_PORT'] == 80) ? 'http://' : 'https://';
-			$pageUrl = $pageUrl . $_SERVER['HTTP_HOST'] . $_SERVER['DOCUMENT_URI'] . basename($file);
+		} else {
+			// grab file meta over http and try again
+			$pageFetchURL = sprintf(
+				'%s://%s%s%s',
+				($_SERVER['SERVER_PORT'] == 80) ? 'http' : 'https',
+				$_SERVER['HTTP_HOST'],$_SERVER['DOCUMENT_URI'],
+				$filePathBaseName
+			);
 
-			$title = (preg_match(self::FETCH_PAGE_TITLE_REGEXP,file_get_contents($pageUrl),$matches))
+			// fetch page source - save content size (filesize) and extract title
+			$pageContent = file_get_contents($pageFetchURL);
+			$pageFileSize = strlen($pageContent);
+			$pageTitle = (preg_match(self::PAGE_TITLE_EXTRACT_REGEXP,$pageContent,$matches))
 				? trim($matches[1])
 				: 'N/A';
 		}
 
-		$title = htmlspecialchars_decode($title);
+		$pageTitle = htmlspecialchars_decode($pageTitle);
 
-		// cache page title in session
-		if (!isset($_SESSION[self::PAGE_TITLE_SESSION_KEY])) {
-			$_SESSION[self::PAGE_TITLE_SESSION_KEY] = [];
+		// cache page meta data in session and return
+		if (!isset($_SESSION[self::PAGE_META_SESSION_KEY])) {
+			$_SESSION[self::PAGE_META_SESSION_KEY] = [];
 		}
 
-		$_SESSION[self::PAGE_TITLE_SESSION_KEY][$file] = $title;
-
-		// return title
-		return $title;
+		$metaData = [$pageTitle,$pageFileSize];
+		$_SESSION[self::PAGE_META_SESSION_KEY][$fileMetaStoreKey] = $metaData;
+		return $metaData;
 	}
 }
 
 
-new PrettyTemplateIndex();
+(new PrettyTemplateIndex())->execute();
