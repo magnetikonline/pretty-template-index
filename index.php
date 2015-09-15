@@ -35,7 +35,7 @@ class PrettyTemplateIndex {
 		table { border-collapse: collapse;font-size: 1.6em;margin: 0 auto; }
 		table th,table td { color: #000;padding: 8px;vertical-align: top; }
 		table th { background: #8899a8;font-weight: bold;text-align: left; }
-		table tr { background: #4a535b;-moz-transition: background 200ms linear;-o-transition: background 200ms linear;-webkit-transition: background 200ms linear;transition: background 200ms linear; }
+		table tr { background: #4a535b;-o-transition: background 200ms linear;-webkit-transition: background 200ms linear;transition: background 200ms linear; }
 		table tr:nth-child(odd) { background: #545f68; }
 		table tr:hover { background: #bcd3e7; }
 		table a { color: #000;text-decoration: none; }
