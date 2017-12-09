@@ -74,17 +74,21 @@ EOT;
 
 		$html = '';
 		foreach ($fileList as $fileItem) {
-			// get file item name as HTML and file meta data
-			$fileItemHtml = htmlspecialchars(basename($fileItem));
+			// get file meta data
 			list($pageTitle,$pageSize) = $this->getPageMeta($fileItem);
 
-			$html .=
+			$html .= sprintf(
 				'<tr>' .
-					'<td><a href="' . $fileItemHtml . '">' . $fileItemHtml . '</a></td>' .
-					'<td>' . htmlspecialchars($pageTitle) . '</td>' .
-					'<td>' . $pageSize . '</td>' .
-					'<td>' . date('Y-m-d H:i:s',filemtime($fileItem)) . '</td>' .
-				'</tr>';
+					'<td><a href="%1$s">%1$s</a></td>' .
+					'<td>%2$s</td>' .
+					'<td>%3$d</td>' .
+					'<td>%4$s</td>' .
+				'</tr>',
+				htmlspecialchars(basename($fileItem)),
+				htmlspecialchars($pageTitle),
+				$pageSize,
+				date('Y-m-d H:i:s',filemtime($fileItem))
+			);
 		}
 
 		return $html;
@@ -112,7 +116,7 @@ EOT;
 
 		// page not in session cache/file modified
 
-		// attempt page title fetch directly from file
+		// attempt page title fetch directly from file system
 		if (preg_match(
 			self::PAGE_TITLE_EXTRACT_REGEXP,
 			file_get_contents($filePath),$matches
